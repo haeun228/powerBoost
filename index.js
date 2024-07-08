@@ -4,8 +4,8 @@ let posts = []; // 게시글 저장
 let comments = {}; // 댓글 저장
 let likes = {}; // 게시글 별로 좋아요 누른 사용자 저장
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
 // 전체 글 조회
 app.get('/posts', function (req, res) {
@@ -111,4 +111,4 @@ app.post('/posts/:id/comment', (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('Server Started'));
+app.listen(3000, () => console.log('Server Started'));
