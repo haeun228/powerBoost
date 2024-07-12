@@ -1,4 +1,5 @@
-const express = require('express')
+const express = require('express');
+const db = require('./db.js');
 
 let posts = []; // 게시글 저장
 let comments = {}; // 댓글 저장
@@ -110,5 +111,37 @@ app.post('/posts/:id/comment', (req, res) => {
     res.status(404).send({ message: 'Cannot find given id.' });
   }
 });
+
+// 아이디 중복 체크
+function idDuplicateCheck(userId) {
+  db.query("SELECT user_id FROM Users WHERE user_id = ?", [userId], (error, results) => {
+    if (error) {
+      throw error;
+    } 
+
+    if(results.length===0) {
+      return true;
+    } else {
+      return false;
+    }
+  });
+};
+
+// 회원 가입
+app.post('/signup', (req, res) => {
+  const userInfo = req.body;
+  if (idDuplicateCheck(userInfo.userId)){
+    res.send({ message: "중복된 아이디 입니다!" });
+  } else {
+    db.query("INSERT INTO Users (user_id, email, password) VALUES (?, ?, ?)", [userInfo.userId, userInfo.email, userInfo.password], (error, results) => {
+      if (error) {
+        throw error;
+      }
+      res.status(201).send({ message: '회원가입 완료!' });
+    });
+  }
+});
+
+// 로그인
 
 app.listen(3000, () => console.log('Server Started'));
