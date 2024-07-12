@@ -114,24 +114,27 @@ app.post('/posts/:id/comment', (req, res) => {
 
 // 아이디 중복 체크
 function idDuplicateCheck(userId) {
-  db.query("SELECT user_id FROM Users WHERE user_id = ?", [userId], (error, results) => {
+  return new Promise((resolve, reject) => {
+    db.query("SELECT user_id FROM Users WHERE user_id = ?", [userId], (error, results) => {
     if (error) {
-      throw error;
+      return reject(error);
     } 
 
     if(results.length===0) {
-      return true;
+      resolve(false);
     } else {
-      return false;
+      resolve(true);
     }
-  });
+    });
+  });  
 };
 
 // 회원 가입
-app.post('/signup', (req, res) => {
+app.post('/signup', async (req, res) => {
   const userInfo = req.body;
-  if (idDuplicateCheck(userInfo.userId)){
-    res.send({ message: "중복된 아이디 입니다!" });
+  const isIdDuplicate = await idDuplicateCheck(userInfo.userId);
+  if (isIdDuplicate){
+    res.send({ message: '중복된 아이디 입니다!' });
   } else {
     db.query("INSERT INTO Users (user_id, email, password) VALUES (?, ?, ?)", [userInfo.userId, userInfo.email, userInfo.password], (error, results) => {
       if (error) {
