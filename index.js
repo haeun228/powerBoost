@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('./db.js');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 let posts = []; // 게시글 저장
 let comments = {}; // 댓글 저장
@@ -129,14 +131,35 @@ function idDuplicateCheck(userId) {
   });  
 };
 
+// 이메일 중복 체크
+function emailDuplicateCheck(email) {
+  return new Promise((resolve, reject) => {
+    db.query("SELECT email FROM Users WHERE email = ?", [email], (error, results) => {
+    if (error) {
+      return reject(error);
+    } 
+
+    if(results.length===0) {
+      resolve(false);
+    } else {
+      resolve(true);
+    }
+    });
+  });  
+};
+
 // 회원 가입
 app.post('/signup', async (req, res) => {
   const userInfo = req.body;
   const isIdDuplicate = await idDuplicateCheck(userInfo.userId);
+  const isEmailDuplicate = await emailDuplicateCheck(userInfo.email);
   if (isIdDuplicate){
     res.send({ message: '중복된 아이디 입니다!' });
+  } else if (isEmailDuplicate) {
+    res.send({ message: '중복된 이메일 입니다!' });
   } else {
-    db.query("INSERT INTO Users (user_id, email, password) VALUES (?, ?, ?)", [userInfo.userId, userInfo.email, userInfo.password], (error, results) => {
+    const hashedPassword = await bcrypt.hash(userInfo.password, saltRounds);
+    db.query("INSERT INTO Users (user_id, email, password) VALUES (?, ?, ?)", [userInfo.userId, userInfo.email, hashedPassword], (error, results) => {
       if (error) {
         throw error;
       }
