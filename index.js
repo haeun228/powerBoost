@@ -6,6 +6,7 @@ const saltRounds = 10;
 let posts = []; // 게시글 저장
 let comments = {}; // 댓글 저장
 let likes = {}; // 게시글 별로 좋아요 누른 사용자 저장
+let currentUserId;
 
 const app = express();
 app.use(express.json());
@@ -169,5 +170,31 @@ app.post('/signup', async (req, res) => {
 });
 
 // 로그인
+app.post('/login', async (req, res) => {
+  const { userId, password } = req.body;
+
+  db.query("SELECT * FROM Users WHERE user_id = ?", [userId], async (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: "Server Error" });
+    }
+    if (results.length===0) {
+      return res.status(400).send({ message: "Wrong user ID!" });
+    } 
+
+    const isPasswordCorrect = await bcrypt.compare(password, results[0].password);
+    if (isPasswordCorrect) {
+      currentUserId = userId;
+      res.send({ message: 'Login Succeeded!' });
+    } else {
+      res.status(401).send({ message: 'Wrong password!' });
+    }
+  });
+});
+
+// 로그아웃
+app.post('/logout', (req, res) => {
+  currentUserId = null;
+  res.send({ message: 'Logout Succeeded!' });
+});
 
 app.listen(3000, () => console.log('Server Started'));
