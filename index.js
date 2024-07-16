@@ -6,7 +6,7 @@ const saltRounds = 10;
 let posts = []; // 게시글 저장
 let comments = {}; // 댓글 저장
 let likes = {}; // 게시글 별로 좋아요 누른 사용자 저장
-let currentUserId;
+let currentUserId = null;
 
 const app = express();
 app.use(express.json());
@@ -34,6 +34,9 @@ app.get('/posts/:id', function (req, res) {
 // 글 작성 
 app.post('/posts', (req, res) => {
   const newPost = req.body;
+  if (!currentUserId) {
+    return res.status(404).send({ message: 'You have to login first to upload a post' });
+  }
   db.query('INSERT INTO Posts (user_id, title, content) VALUES (?, ?, ?)', [currentUserId, newPost.title, newPost.content], (error, results) => {
     if (error) {
       return res.status(500).send({ message: 'Failed to upload a post..' });
@@ -85,35 +88,60 @@ app.delete('/posts/:id', (req, res) => {
 // 게시글 좋아요 & 좋아요 취소
 app.post('/posts/:id/like', (req, res)=> {
   const postId = Number(req.params.id);
-  const post = posts.find((post) => post.id === postId);
-  const { userId } = req.body;
-  
-  if (post) {
-    const idx = likes[postId].indexOf(userId);
-    if (idx >= 0) {
-      likes[postId].splice(idx, 1);
-      res.send({ message: `User "${userId}" unliked the post.`});
-    } else {
-      likes[postId].push(userId);
-      res.send({ message: `User "${userId}" liked the post.`});
-    }
-  } else {
-    res.status(404).send({ message: 'Cannot find given id.' });
+  if (!currentUserId) {
+    return res.status(404).send({ message: 'You have to login first to like a post' });
   }
+  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: 'Server Error' });
+    }
+    if (results.length===0) {
+      return res.status(404).send({ message: 'Cannot find given post id.' });
+    }
+    db.query('SELECT * FROM Likes WHERE post_id = ? AND user_id = ?', [postId, currentUserId], (error, results) => {
+      if (error) {
+        return res.status(500).send({ message: 'Server Error' });
+      }
+      if (results.length===0) {
+        db.query('INSERT INTO Likes (post_id, user_id) VALUES (?, ?)', [postId, currentUserId], (error, results) => {
+          if (error) {
+            return res.status(500).send({ message: 'Server Error' });
+          }
+          res.send({ message: 'Post liked successfully!'});
+        });
+      } else {
+        db.query('DELETE FROM Likes WHERE post_id = ? AND user_id = ?', [postId, currentUserId], (error, results) => {
+          if (error) {
+            return res.status(500).send({ message: 'Server Error' });
+          }
+          res.send({ message: 'Post unliked successfully!'});
+        });
+      }
+    });
+  });
 });
 
 // 댓글
 app.post('/posts/:id/comment', (req, res) => {
   const postId = Number(req.params.id);
-  const post = posts.find((post) => post.id === postId);
-  const newComment = req.body;
-
-  if (post) {
-    comments[postId].push(newComment);
-    res.send(comments[postId]);
-  } else {
-    res.status(404).send({ message: 'Cannot find given id.' });
+  const { comment } = req.body;
+  if (!currentUserId) {
+    return res.status(404).send({ message: 'You have to login first to like a post' });
   }
+  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: 'Server Error' });
+    }
+    if (results.length===0) {
+      return res.status(404).send({ message: 'Cannot find given post id.' });
+    }
+    db.query('INSERT INTO Comments (post_id, user_id, content) VALUES (?, ?, ?)', [postId, currentUserId, comment], (error, results) => {
+      if (error) {
+        return res.status(500).send({ message: 'Server Error' });
+      }
+      res.send({ message: 'Comment posted successfully' });
+    });
+  });
 });
 
 // 아이디 중복 체크
