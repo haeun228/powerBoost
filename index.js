@@ -34,51 +34,52 @@ app.get('/posts/:id', function (req, res) {
 // 글 작성 
 app.post('/posts', (req, res) => {
   const newPost = req.body;
-  const ids = posts.map((post) => post.id);
-  let postId;
-  if (ids.length===0){
-    postId = 1
-  } else {
-    postId = Math.max(...ids) + 1;
-  }
-  newPost.id = postId;
-  newPost.createdAt = new Date();
-  newPost.updatedAt = new Date();
-
-  likes[postId] = [];
-  comments[postId] = [];
-
-  posts.push(newPost);
-  res.status(201).send(newPost);
+  db.query('INSERT INTO Posts (user_id, title, content) VALUES (?, ?, ?)', [currentUserId, newPost.title, newPost.content], (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: 'Failed to upload a post..' });
+    }
+    res.status(201).send({ message: 'Post uploaded succesfully' });
+  });
 });
 
 // 글 수정
 app.patch('/posts/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const post = posts.find((post) => post.id === id);
-  if (post) {
-    Object.keys(req.body).forEach((key) => {
-      post[key] = req.body[key];
+  const postId = Number(req.params.id);
+  const { title, content } = req.body;
+  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: "Server Error" });
+    }
+    if (results.length===0) {
+      return res.status(404).send({ message: 'Cannot find given post id.' });
+    }
+
+    // 수정되지 않은 것은 기존 내용 그대로
+    const updatedTitle = title !== undefined ? title : results[0].title;
+    const updatedContent = content !== undefined ? content : results[0].content;
+
+    console.log(updatedTitle, updatedContent);
+    db.query('UPDATE Posts SET title = ?, content = ? WHERE post_id = ?', [updatedTitle, updatedContent, postId], (error, results) => {
+      if (error) {
+        return res.status(500).send({ message: "Server Error" });
+      }
+      res.send({ message: 'Post updated successfully!' });
     });
-    post.updatedAt = new Date();
-    res.send(post);
-  } else {
-    res.status(404).send({ message: 'Cannot find given id.' });
-  }
+  });
 });
 
 // 글 삭제
 app.delete('/posts/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const idx = posts.findIndex((post) => post.id === id);
-  if (idx>=0) {
-    posts.splice(idx, 1);
-    delete likes[id];
-    delete comments[id];
-    res.sendStatus(204);
-  } else {
-    res.status(404).send({ message: 'Cannot find given id.' });
-  }
+  const postId = Number(req.params.id);
+  db.query('DELETE FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: "Server Error" });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).send({ message: 'Cannot find given post id' });
+    }
+    res.status(204).send({ message: 'Post deleted succesfully!' })
+  })
 });
 
 // 게시글 좋아요 & 좋아요 취소
@@ -192,7 +193,7 @@ app.post('/login', async (req, res) => {
 });
 
 // 로그아웃
-app.post('/logout', (req, res) => {
+app.get('/logout', (req, res) => {
   currentUserId = null;
   res.send({ message: 'Logout Succeeded!' });
 });
