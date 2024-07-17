@@ -93,6 +93,9 @@ app.patch('/posts/:id', async (req, res) => {
   if (!post) {
     return res.status(404).send({ message: 'Cannot find given post id.' });
   }
+  if (post.user_id!==req.session.userId) {
+    return res.status(404).send({ message: 'You cannot update this post' });
+  }
   // 수정되지 않은 것은 기존 내용 그대로
   const updatedTitle = title !== undefined ? title : post.title;
   const updatedContent = content !== undefined ? content : post.content;
@@ -106,8 +109,15 @@ app.patch('/posts/:id', async (req, res) => {
 });
 
 // 글 삭제
-app.delete('/posts/:id', (req, res) => {
+app.delete('/posts/:id', async (req, res) => {
   const postId = Number(req.params.id);
+  const post = await getPostById(postId);
+  if (!post) {
+    return res.status(404).send({ message: 'Cannot find given post id.' });
+  }
+  if (post.user_id!==req.session.userId) {
+    return res.status(404).send({ message: 'You cannot delete this post' });
+  }
   db.query('DELETE FROM Posts WHERE post_id = ?', [postId], (error, results) => {
     if (error) {
       return res.status(500).send({ message: "Server Error" });
