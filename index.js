@@ -12,23 +12,55 @@ const app = express();
 app.use(express.json());
 
 // 전체 글 조회
-app.get('/posts', function (req, res) {
-  res.send(posts)
+app.get('/posts', (req, res) => {
+  db.query('SELECT * FROM Posts', (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: "Server Error" });
+    }
+    res.send(results);
+  });
 });
 
-// 특정 글 조회 (댓글, 좋아요 포함)
-app.get('/posts/:id', function (req, res) {
-  const id = Number(req.params.id);
-  const post = posts.find((post) => post.id === id);
+function getLikeCount(postId) {
+  return new Promise((resolve, reject) => {
+    db.query('SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = ?', [postId], (error, results) => {
+      if (error) {
+        return reject(error);
+      }
+      const likes = results[0].like_count;
+      resolve(likes);
+    });
+  });
+}
 
-  if (post) {
-    const detailedPost = { ...post };
-    detailedPost.comments = comments[id];
-    detailedPost.likes = likes[id];
-    res.send(detailedPost);
-  } else {
-    res.status(404).send({ message: 'Cannot find given id.' });
-  }
+function getComments(postId) {
+  return new Promise((resolve, reject) => {
+    db.query('SELECT user_id, content, created_at FROM Comments WHERE post_id = ?', [postId], (error, results) => {
+      if (error) {
+        return reject(error);
+      }
+      resolve(results);
+    });
+  });
+}
+
+// 특정 글 조회 (댓글, 좋아요 포함)
+app.get('/posts/:id', (req, res) => {
+  const postId = Number(req.params.id);
+  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], async (error, results) => {
+    if (error) {
+      return res.status(500).send({ message: "Server Error" });
+    }
+    if (results.length===0) {
+      return res.status(404).send({ message: 'Cannot find given post id.' });
+    }
+    
+    const post = results[0];
+    post.likes = await getLikeCount(postId);
+    post.comments = await getComments(postId);
+
+    res.send(post);
+  });
 });
 
 // 글 작성 
