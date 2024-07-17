@@ -2,14 +2,16 @@ const express = require('express');
 const db = require('./db.js');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
-
-let posts = []; // 게시글 저장
-let comments = {}; // 댓글 저장
-let likes = {}; // 게시글 별로 좋아요 누른 사용자 저장
-let currentUserId = null;
+const session = require('express-session');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: true
+}));
 
 // 전체 글 조회
 app.get('/posts', (req, res) => {
@@ -20,6 +22,17 @@ app.get('/posts', (req, res) => {
     res.send(results);
   });
 });
+
+function getPostById(postId) {
+  return new Promise((resolve, reject) => {
+    db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], async (error, results) => {
+      if (error) {
+        return reject(error);
+      }
+      resolve(results[0]);
+    });
+  });
+}
 
 function getLikeCount(postId) {
   return new Promise((resolve, reject) => {
@@ -45,31 +58,25 @@ function getComments(postId) {
 }
 
 // 특정 글 조회 (댓글, 좋아요 포함)
-app.get('/posts/:id', (req, res) => {
+app.get('/posts/:id', async (req, res) => {
   const postId = Number(req.params.id);
-  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], async (error, results) => {
-    if (error) {
-      return res.status(500).send({ message: "Server Error" });
-    }
-    if (results.length===0) {
-      return res.status(404).send({ message: 'Cannot find given post id.' });
-    }
-    
-    const post = results[0];
-    post.likes = await getLikeCount(postId);
-    post.comments = await getComments(postId);
+  const post = await getPostById(postId);
 
-    res.send(post);
-  });
+  if (!post) {
+    return res.status(404).send({ message: 'Cannot find given post id.' });
+  }
+  post.likes = await getLikeCount(postId);
+  post.comments = await getComments(postId);
+  res.send(post);
 });
 
 // 글 작성 
 app.post('/posts', (req, res) => {
   const newPost = req.body;
-  if (!currentUserId) {
+  if (!req.session.userId) {
     return res.status(404).send({ message: 'You have to login first to upload a post' });
   }
-  db.query('INSERT INTO Posts (user_id, title, content) VALUES (?, ?, ?)', [currentUserId, newPost.title, newPost.content], (error, results) => {
+  db.query('INSERT INTO Posts (user_id, title, content) VALUES (?, ?, ?)', [req.session.userId, newPost.title, newPost.content], (error, results) => {
     if (error) {
       return res.status(500).send({ message: 'Failed to upload a post..' });
     }
@@ -78,28 +85,23 @@ app.post('/posts', (req, res) => {
 });
 
 // 글 수정
-app.patch('/posts/:id', (req, res) => {
+app.patch('/posts/:id', async (req, res) => {
   const postId = Number(req.params.id);
   const { title, content } = req.body;
-  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+  const post = await getPostById(postId);
+
+  if (!post) {
+    return res.status(404).send({ message: 'Cannot find given post id.' });
+  }
+  // 수정되지 않은 것은 기존 내용 그대로
+  const updatedTitle = title !== undefined ? title : post.title;
+  const updatedContent = content !== undefined ? content : post.content;
+
+  db.query('UPDATE Posts SET title = ?, content = ? WHERE post_id = ?', [updatedTitle, updatedContent, postId], (error, results) => {
     if (error) {
       return res.status(500).send({ message: "Server Error" });
     }
-    if (results.length===0) {
-      return res.status(404).send({ message: 'Cannot find given post id.' });
-    }
-
-    // 수정되지 않은 것은 기존 내용 그대로
-    const updatedTitle = title !== undefined ? title : results[0].title;
-    const updatedContent = content !== undefined ? content : results[0].content;
-
-    console.log(updatedTitle, updatedContent);
-    db.query('UPDATE Posts SET title = ?, content = ? WHERE post_id = ?', [updatedTitle, updatedContent, postId], (error, results) => {
-      if (error) {
-        return res.status(500).send({ message: "Server Error" });
-      }
-      res.send({ message: 'Post updated successfully!' });
-    });
+    res.send({ message: 'Post updated successfully!' });
   });
 });
 
@@ -118,61 +120,58 @@ app.delete('/posts/:id', (req, res) => {
 });
 
 // 게시글 좋아요 & 좋아요 취소
-app.post('/posts/:id/like', (req, res)=> {
+app.post('/posts/:id/like', async (req, res)=> {
   const postId = Number(req.params.id);
-  if (!currentUserId) {
+  const post = await getPostById(postId);
+
+  if (!req.session.userId) {
     return res.status(404).send({ message: 'You have to login first to like a post' });
   }
-  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+
+  if (!post) {
+    return res.status(404).send({ message: 'Cannot find given post id.' });
+  }
+
+  db.query('SELECT * FROM Likes WHERE post_id = ? AND user_id = ?', [postId, req.session.userId], (error, results) => {
     if (error) {
       return res.status(500).send({ message: 'Server Error' });
     }
     if (results.length===0) {
-      return res.status(404).send({ message: 'Cannot find given post id.' });
+      db.query('INSERT INTO Likes (post_id, user_id) VALUES (?, ?)', [postId, req.session.userId], (error, results) => {
+        if (error) {
+          return res.status(500).send({ message: 'Server Error' });
+        }
+        res.send({ message: 'Post liked successfully!'});
+      });
+    } else {
+      db.query('DELETE FROM Likes WHERE post_id = ? AND user_id = ?', [postId, req.session.userId], (error, results) => {
+        if (error) {
+          return res.status(500).send({ message: 'Server Error' });
+        }
+        res.send({ message: 'Post unliked successfully!'});
+      });
     }
-    db.query('SELECT * FROM Likes WHERE post_id = ? AND user_id = ?', [postId, currentUserId], (error, results) => {
-      if (error) {
-        return res.status(500).send({ message: 'Server Error' });
-      }
-      if (results.length===0) {
-        db.query('INSERT INTO Likes (post_id, user_id) VALUES (?, ?)', [postId, currentUserId], (error, results) => {
-          if (error) {
-            return res.status(500).send({ message: 'Server Error' });
-          }
-          res.send({ message: 'Post liked successfully!'});
-        });
-      } else {
-        db.query('DELETE FROM Likes WHERE post_id = ? AND user_id = ?', [postId, currentUserId], (error, results) => {
-          if (error) {
-            return res.status(500).send({ message: 'Server Error' });
-          }
-          res.send({ message: 'Post unliked successfully!'});
-        });
-      }
-    });
   });
 });
 
 // 댓글
-app.post('/posts/:id/comment', (req, res) => {
+app.post('/posts/:id/comment', async (req, res) => {
   const postId = Number(req.params.id);
   const { comment } = req.body;
-  if (!currentUserId) {
-    return res.status(404).send({ message: 'You have to login first to like a post' });
+  const post = await getPostById(postId);
+
+  if (!req.session.userId) {
+    return res.status(404).send({ message: 'You have to login first to write comment to a post' });
   }
-  db.query('SELECT * FROM Posts WHERE post_id = ?', [postId], (error, results) => {
+  if (!post) {
+    return res.status(404).send({ message: 'Cannot find given post id.' });
+  }
+
+  db.query('INSERT INTO Comments (post_id, user_id, content) VALUES (?, ?, ?)', [postId, req.session.userId, comment], (error, results) => {
     if (error) {
       return res.status(500).send({ message: 'Server Error' });
     }
-    if (results.length===0) {
-      return res.status(404).send({ message: 'Cannot find given post id.' });
-    }
-    db.query('INSERT INTO Comments (post_id, user_id, content) VALUES (?, ?, ?)', [postId, currentUserId, comment], (error, results) => {
-      if (error) {
-        return res.status(500).send({ message: 'Server Error' });
-      }
-      res.send({ message: 'Comment posted successfully' });
-    });
+    res.send({ message: 'Comment posted successfully' });
   });
 });
 
@@ -244,7 +243,7 @@ app.post('/login', async (req, res) => {
 
     const isPasswordCorrect = await bcrypt.compare(password, results[0].password);
     if (isPasswordCorrect) {
-      currentUserId = userId;
+      req.session.userId = userId;
       res.send({ message: 'Login Succeeded!' });
     } else {
       res.status(401).send({ message: 'Wrong password!' });
@@ -254,7 +253,11 @@ app.post('/login', async (req, res) => {
 
 // 로그아웃
 app.get('/logout', (req, res) => {
-  currentUserId = null;
+  req.session.destroy((error) => {
+    if (error) {
+      return res.send({ message: 'Error logging out' });
+    }
+  });
   res.send({ message: 'Logout Succeeded!' });
 });
 
