@@ -209,6 +209,9 @@
     }
     ```
 
+#### ERD
+![ERD](erd.png)
+
 #### 💡 1주차
 - `app.use(express.json())` 사용하는 것을 잊지 말 것!
     - (`express.json()` : JSON 형식의 HTTP 요청 body를 자동을 parsing 해주는 미들웨어)
