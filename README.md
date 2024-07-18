@@ -246,12 +246,11 @@
     Content-Type: application/json; charset=utf-8
     Content-Length: 34
     ETag: W/"22-9jawSZpIALbRiGIVM9h/MrIKSo8"
-    Set-Cookie: connect.sid=s%3A-sEryGLSwDkuFpkZTJQlrzILXzVfbkkE.VxbV3wby9rnQOLjBTHvks0qh6GLPCEucQ8X4SY7hpUk; Path=/; HttpOnly
-    Date: Thu, 18 Jul 2024 00:41:48 GMT
+    Date: Thu, 18 Jul 2024 01:20:03 GMT
     Connection: close
     
     {
-      "message": "회원가입 완료!"
+      "message": "Registration Complete!"
     }
     ```
 #### POST /login
@@ -511,4 +510,4 @@
 - `mysql` 모듈의 `db.query()` 메소드는 콜백 기반의 비동기 함수이기 때문에 콜백 함수 내에서 리턴하면 아무데도 전달되지 않음.
     - 그렇기 때문에 `db.query()`의 결과값을 이용한 함수를 만들고 싶다면 `Promise`를 사용해서 비동기 작업을 처리하면 됨
 - 마찬가지로 비동기 콜백 내에서 발생하는 오류는 `try-catch`가 잡지 못하기 때문에 콜백 함수 내에서 예외 처리 해야함
-- DB에서 불러온 데이터를 다루는 과정에서 비동기 함수와 Promise에 대해 확실히 알게 된 것 같다.
+- DB에서 불러온 데이터를 다루는 과정에서 비동기 작업과 Promise를 다루는 법을 더 잘 알게 된 것 같다.
