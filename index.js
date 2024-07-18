@@ -234,7 +234,7 @@ app.post('/signup', async (req, res) => {
       if (error) {
         throw error;
       }
-      res.status(201).send({ message: '회원가입 완료!' });
+      res.status(201).send({ message: 'Registration Complete!' });
     });
   }
 });
@@ -248,7 +248,7 @@ app.post('/login', async (req, res) => {
       return res.status(500).send({ message: "Server Error" });
     }
     if (results.length===0) {
-      return res.status(400).send({ message: "Wrong user ID!" });
+      return res.status(400).send({ message: "Invalid user ID!" });
     } 
 
     const isPasswordCorrect = await bcrypt.compare(password, results[0].password);
@@ -256,7 +256,7 @@ app.post('/login', async (req, res) => {
       req.session.userId = userId;
       res.send({ message: 'Login Succeeded!' });
     } else {
-      res.status(401).send({ message: 'Wrong password!' });
+      res.status(401).send({ message: 'Invalid password!' });
     }
   });
 });
