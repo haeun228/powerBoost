@@ -6,6 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
+    "migrate": "sequelize db:migrate",
+    "seed": "sequelize db:seed:all",
     "start": "node index.js"
   },
   "author": "",
@@ -16,8 +18,10 @@
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "memorystore": "^1.6.7",
-    "mysql": "^2.18.1",
+    "mysql2": "^3.10.3",
     "nodemon": "^3.1.4",
-    "nunjucks": "^3.2.4"
+    "nunjucks": "^3.2.4",
+    "sequelize": "^6.37.3",
+    "sequelize-cli": "^6.6.2"
   }
 }
