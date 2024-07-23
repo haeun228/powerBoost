@@ -2,13 +2,13 @@
   "name": "powerboost",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js",
+    "dev": "nodemon app.js",
     "migrate": "sequelize db:migrate",
     "seed": "sequelize db:seed:all",
-    "start": "node index.js"
+    "start": "node app.js"
   },
   "author": "",
   "license": "ISC",
