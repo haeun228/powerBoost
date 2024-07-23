@@ -197,4 +197,16 @@ app.get('/logout', asyncHandler((req, res) => {
   res.send({ message: 'Logout Succeeded!' });
 }));
 
+// 스크랩 조회 (좋아요 한 게시글 조회)
+app.get('/likes', authenticateToken, asyncHandler(async (req, res) => {
+  const likedPosts = await Like.findAll({
+    where: { userId: req.userId },
+    include: [{
+      model: Post,
+    }],
+  });
+
+  res.send(likedPosts.map(likes => likes.Post));
+}));
+
 app.listen(3000, () => console.log('Server Started'));
