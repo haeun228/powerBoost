@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const cookieParser = require('cookie-parser');
+const { Op } = require('sequelize');
 require('dotenv').config();
 const {
   generateAccessToken,
@@ -39,6 +40,37 @@ app.get('/posts', asyncHandler(async (req, res) => {
   const posts = await Post.findAll({
     order: [['createdAt', 'DESC']],
   });
+  res.send(posts);
+}));
+
+// 게시물 검색
+app.get('/posts/search', asyncHandler(async (req, res) => {
+  const { query, option } = req.query;
+
+  if (!query) {
+    return res.status(400).send({ message: 'Search query is required' });
+  }
+
+  // option에 검색 범위 설정. 기본값은 제목과 내용 모두 검색
+  let whereCondition = {};
+  if (option === 'title') {
+    whereCondition = { title: { [Op.like]: `%${query}%` } };
+  } else if (option === 'content') {
+    whereCondition = { content: { [Op.like]: `%${query}%` } };
+  } else {
+    whereCondition = {
+      [Op.or]: [
+        { title: { [Op.like]: `%${query}%` } },
+        { content: { [Op.like]: `%${query}%` } }
+      ]
+    };
+  }
+
+  const posts = await Post.findAll({
+    where: whereCondition,
+    order: [['createdAt', 'DESC']]
+  });
+
   res.send(posts);
 }));
 
@@ -185,7 +217,7 @@ app.post('/login', asyncHandler(async (req, res) => {
       maxAge: 10 * 60 * 1000 // 10분
     });
 
-    res.send({ message: 'Login Succeeded!' });
+    res.send({ message: 'Login Succeeded!', user: userId });
   } else {
     res.status(401).send({ message: 'Invalid password!' });
   }
@@ -198,7 +230,7 @@ app.get('/logout', asyncHandler((req, res) => {
 }));
 
 // 스크랩 조회 (좋아요 한 게시글 조회)
-app.get('/likes', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/scrap', authenticateToken, asyncHandler(async (req, res) => {
   const likedPosts = await Like.findAll({
     where: { userId: req.userId },
     include: [{

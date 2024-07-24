@@ -1,10 +1,10 @@
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const db = require('./models/index');
-const { User } = db;
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
+// 토큰 발급
 const generateAccessToken = (userId) => {
   return jwt.sign(
     { id: userId },
@@ -21,6 +21,7 @@ const generateAccessToken = (userId) => {
 //   );
 // };
 
+// 유효한 토큰인지 검증
 const verifyAccessToken = (token) => {
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
@@ -59,6 +60,7 @@ const verifyAccessToken = (token) => {
 //   }
 // };
 
+// 인증 미들웨어
 const authenticateToken = (req, res, next) => {
   const token = req.cookies.accessToken;
 
