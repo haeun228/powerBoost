@@ -24,7 +24,8 @@ module.exports = (sequelize, DataTypes) => {
       references: {
         model: 'Posts',
         key: 'postId'
-      }
+      },
+      onDelete: 'CASCADE',
     },
     userId: {
       type: DataTypes.STRING,
