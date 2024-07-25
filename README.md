@@ -612,9 +612,8 @@
     ```
     npx sequelize init
     ```
-        - `config`, `migrations`, `models`, `seeders` 디렉토리 생성
-        
-        - `config/config.json`, `models/index.js` 파일 생성
+    - `config`, `migrations`, `models`, `seeders` 디렉토리 생성
+    - `config/config.json`, `models/index.js` 파일 생성
 
 3. `config.json` 파일 중 `development` 객체에 MySQL 서버 접속 정보 설정
     ```
